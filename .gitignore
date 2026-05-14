@@ -1,0 +1,6 @@
+ROM/
+.claude/
+.vscode/
+*.dSYM/
+build/
+
