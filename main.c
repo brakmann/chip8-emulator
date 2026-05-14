@@ -87,9 +87,29 @@ int cycle(Chip8 *chip8) {
 
     //decoding opcode group
     switch (opcode & 0xF000) {
+        case 0x0000: 
+            switch (opcode & 0x00FF) {
+                case 0x00E0: // CLS
+                    memset(chip8->screen, 0, sizeof(chip8->screen));
+                    break;
+                case 0x00EE: //RET
+                    chip8->PC = chip8->stack[chip8->SP];    
+                    chip8->SP -= 1;            
+                    break;
+                default: // SYS (NNN) ignored by modern interpreters
+                    break;
+            }
+            break;
+
         case 0x1000: // JP (NNN)
             chip8->PC = NNN;
             break; 
+
+        case 0x2000: // CALL (NNN)
+            chip8->SP += 1;
+            chip8->stack[chip8->SP] = chip8->PC;
+            chip8->PC = NNN;
+            break;
 
         case 0x3000: // SE (V[X], NN)
             if (chip8->V[X] == NN) {
@@ -115,6 +135,41 @@ int cycle(Chip8 *chip8) {
 
         case 0x7000: // ADD (V[X], NN)
             chip8->V[X] += NN;
+            break;
+
+        case 0x8000: 
+            switch (opcode & 0x000F) {
+                case 0x0000: //LD (V[X], V[Y])
+                    chip8->V[X] = chip8->V[Y];
+                    break;
+
+                case 0x0001: //OR (V[X], V[Y])
+                    chip8->V[X] = chip8->V[X] | chip8->V[Y];
+                    break;
+
+                case 0x0002: //AND (V[X], V[Y])
+                    chip8->V[X] = chip8->V[X] & chip8->V[Y];
+                    break;
+
+                case 0x0003: //XOR (V[X], V[Y])
+                    chip8->V[X] = chip8->V[X] ^ chip8->V[Y];
+                    break;
+
+                case 0x0004: //ADD (V[X], V[Y])
+                    break;   
+
+                case 0x0005: //SUB (V[X], V[Y])
+                    break;
+
+                case 0x0006: //SHR (V[X], V[Y])
+                    break;
+
+                case 0x0007: //SUBN (V[X], V[Y])
+                    break;
+
+                case 0x000E: //SHL (V[X], V[Y])
+                    break;
+            }
             break;
 
         case 0x9000: // SNE (V[X], V[Y])
