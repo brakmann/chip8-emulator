@@ -156,18 +156,31 @@ int cycle(Chip8 *chip8) {
                     break;
 
                 case 0x0004: //ADD (V[X], V[Y])
+                    chip8->V[0xF] = (chip8->V[X] + chip8->V[Y]) > 0xFF ? 1 : 0;
+                    chip8->V[X] += chip8->V[Y];
                     break;   
 
                 case 0x0005: //SUB (V[X], V[Y])
+                    chip8->V[X] -= chip8->V[Y];    
+                    chip8->V[0xF] = chip8->V[X] > chip8->V[Y] ? 1 : 0;  
                     break;
 
-                case 0x0006: //SHR (V[X], V[Y])
+                case 0x0006: //SHR (V[X])
+                    // pick less-significant bit
+                    chip8->V[0xF] = chip8->V[X] & 1;
+                    chip8->V[X] >> 1;
                     break;
 
                 case 0x0007: //SUBN (V[X], V[Y])
+                    chip8->V[X] = chip8->V[Y] - chip8->V[X];    
+                    chip8->V[0xF] = chip8->V[X] > chip8->V[Y] ? 1 : 0;  
                     break;
 
                 case 0x000E: //SHL (V[X], V[Y])
+                    // pick most-significant bit
+                    chip8->V[0xF] = (chip8->V[X] >> 7) & 1;
+                    chip8->V[X] << 1;
+                    break;
                     break;
             }
             break;
