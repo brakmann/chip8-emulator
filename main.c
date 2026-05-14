@@ -72,10 +72,78 @@ int init (Chip8 *chip8) {
     return 0;
 }
 
+int cycle(Chip8 *chip8) {
+    // joining 2 bytes from memory
+    uint16_t opcode = (chip8->memory[chip8->PC] << 8) | chip8->memory[chip8->PC + 1];
+    chip8->PC += 2;
+
+    // fetching variables from opcode 
+    //(shifting x and y nibles to first position)
+    uint8_t X   = (opcode & 0x0F00) >> 8;
+    uint8_t Y   = (opcode & 0x00F0) >> 4;
+    uint8_t N   = (opcode & 0x000F);
+    uint8_t NN  = (opcode & 0x00FF);
+    uint16_t NNN = (opcode & 0x0FFF);
+
+    //decoding opcode group
+    switch (opcode & 0xF000) {
+        case 0x1000: // JP (NNN)
+            chip8->PC = NNN;
+            break; 
+
+        case 0x3000: // SE (V[X], NN)
+            if (chip8->V[X] == NN) {
+                chip8->PC += 2;
+            }
+            break;
+
+        case 0x4000: // SNE (V[X], NN)
+            if (chip8->V[X] != NN) {
+                chip8->PC += 2;
+            }
+            break;
+
+        case 0x5000: // SE (V[X], V[Y])
+            if (chip8->V[X] == chip8->V[Y]) {
+                chip8->PC += 2;
+            }
+            break;
+
+        case 0x6000: // LD (V[X], NN)
+            chip8->V[X] = NN;
+            break;
+
+        case 0x7000: // ADD (V[X], NN)
+            chip8->V[X] += NN;
+            break;
+
+        case 0x9000: // SNE (V[X], V[Y])
+            if (chip8->V[X] != chip8->V[Y]) {
+                chip8->PC += 2;
+            }
+            break;
+
+        case 0xA000: // LD (I, NNN)
+            chip8->I = NNN;
+            break;
+
+        case 0xB000: // JP (V[0], NNN)
+            chip8->PC = chip8->V[0] + NNN;
+            break; 
+
+        default:
+            return 1;
+    }
+    return 0;
+}
+
 int main() {
     Chip8 chip8;
     if (init(&chip8) != 0) {
         return 1;
+    }
+    while (1) {
+        cycle(&chip8);
     }
     return 0; 
 }
