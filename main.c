@@ -62,6 +62,7 @@ int load_rom(Chip8 *chip8, const char *path) {
 }
 
 int init (Chip8 *chip8) {
+    srand(time(NULL)); 
     chip8->PC = START_ADDRESS;
     // initialize sprite memory
     memcpy(chip8->memory, FONTS, sizeof(FONTS));
@@ -160,27 +161,28 @@ int cycle(Chip8 *chip8) {
                     chip8->V[X] += chip8->V[Y];
                     break;   
 
-                case 0x0005: //SUB (V[X], V[Y])
+                case 0x0005: {//SUB (V[X], V[Y])
+                    uint8_t vf = chip8->V[X] > chip8->V[Y] ? 1 : 0;
                     chip8->V[X] -= chip8->V[Y];    
-                    chip8->V[0xF] = chip8->V[X] > chip8->V[Y] ? 1 : 0;  
+                    chip8->V[0xF] = vf;  
                     break;
-
+                }
                 case 0x0006: //SHR (V[X])
                     // pick less-significant bit
                     chip8->V[0xF] = chip8->V[X] & 1;
-                    chip8->V[X] >> 1;
+                    chip8->V[X] >>= 1;
                     break;
 
-                case 0x0007: //SUBN (V[X], V[Y])
+                case 0x0007: {//SUBN (V[X], V[Y])
+                    uint8_t vf = chip8->V[Y] > chip8->V[X] ? 1 : 0;
                     chip8->V[X] = chip8->V[Y] - chip8->V[X];    
-                    chip8->V[0xF] = chip8->V[X] > chip8->V[Y] ? 1 : 0;  
+                    chip8->V[0xF] = vf;
                     break;
-
+                }
                 case 0x000E: //SHL (V[X], V[Y])
                     // pick most-significant bit
                     chip8->V[0xF] = (chip8->V[X] >> 7) & 1;
-                    chip8->V[X] << 1;
-                    break;
+                    chip8->V[X] <<= 1;
                     break;
             }
             break;
@@ -198,6 +200,106 @@ int cycle(Chip8 *chip8) {
         case 0xB000: // JP (V[0], NNN)
             chip8->PC = chip8->V[0] + NNN;
             break; 
+
+        case 0xC000: { //RND (V[X], NN)
+            uint8_t r = rand() & 0xFF;
+            chip8->V[X] = r ^ NN;
+            break;
+        }
+
+        case 0xD000: //DRW (V[X], V[Y], N)
+            chip8->V[0xF] = 0;
+            for (int i = 0; i < N; i++) {
+                uint8_t row = chip8->memory[chip8->I+i];
+                
+                for (int col = 0; col < 8; col++) {
+                    uint8_t pixel = row >> (7 - col) & 1;
+                    if (pixel == 1) {
+                        uint8_t px = (chip8->V[X] + col) % 64;
+                        uint8_t py = (chip8->V[Y] + i) % 32;
+                        if (chip8->screen[py][px] == 1) {
+                            chip8->V[0xF] = 1;
+                        }
+                        chip8->screen[py][px] ^= 1;
+                    }
+                }
+            }
+            break;
+
+        case 0xE000: 
+            switch (opcode & 0x00FF) {
+                case 0x009E: //SKP (V[X])
+                    if (chip8->keypad[chip8->V[X]] == 1) {
+                        chip8->PC += 2;
+                    }
+                    break;
+
+                case 0x00A1: //SKPN (V[X])
+                    if (chip8->keypad[chip8->V[X]] == 0) {
+                        chip8->PC += 2;
+                    }
+                    break;
+                
+            }
+            break;
+
+        case 0xF000:
+            switch (opcode & 0x00FF) {
+                case 0x0007: // LD (V[X], DT)
+                    chip8->V[X] = chip8->delay_timer;
+                    break;
+                
+                case 0x000A: { // LD (V[X], K)
+                    uint8_t key_pressed = 0;
+                    for (int i=0; i < sizeof(chip8->keypad); i++) {
+                        if (chip8->keypad[i]) {
+                            key_pressed = 1;
+                            chip8->V[X] = i;
+                            break;
+                        }
+                    }
+                    if (!key_pressed) {
+                        chip8->PC -= 2;
+                    }
+                }
+                break;
+
+                case 0x0015: // LD (DT, V[X])
+                    chip8->delay_timer = chip8->V[X];
+                    break;
+
+                case 0x0018: // LD (ST, V[X])
+                    chip8->sound_timer = chip8->V[X];
+                    break;
+
+                case 0x001E: // ADD (I, V[X])
+                    chip8->I += chip8->V[X];
+                    break;
+
+                case 0x0029: // LD (F, V[X])
+                    chip8->I = chip8->V[X] * 5;
+                    break;
+
+                case 0x0033: // LD (B, V[X])
+                    chip8->memory[chip8->I]     = chip8->V[X] / 100;
+                    chip8->memory[chip8->I + 1] = (chip8->V[X] / 10) % 10;
+                    chip8->memory[chip8->I + 2] = chip8->V[X] % 10;
+                    break;
+
+                case 0x0055: // LD (I, V[X])
+                    for (int i=0; i<=X; i++) {
+                        chip8->memory[chip8->I+i] = chip8->V[i];
+                    }
+                    break;
+
+                case 0x0065: // LD (V[X], I)
+                    for (int i=0; i<=X; i++) {
+                        chip8->V[i] = chip8->memory[chip8->I+i];
+                    }
+                    break;
+            }
+            break;
+
 
         default:
             return 1;
